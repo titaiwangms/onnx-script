@@ -2146,6 +2146,7 @@ TESTED_TORCHLIB_OPS: tuple[TorchLibOpInfo, ...] = (
         nn_ops.aten_upsample_trilinear3d_vec,
     ),
     TorchLibOpInfo("ones_like", core_ops.aten_ones_like),
+    TorchLibOpInfo("repeat_interleave", core_ops.aten_repeat_interleave),
     TorchLibOpInfo(
         "roll",
         core_ops.aten_roll,

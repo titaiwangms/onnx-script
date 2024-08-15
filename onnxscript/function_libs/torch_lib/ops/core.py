@@ -7058,12 +7058,67 @@ def aten_repeat(self: TTensor, repeats: TInt) -> TTensor:
     return result
 
 
+@torch_op("aten::repeat_interleave.Tensor", trace_only=True)
 def aten_repeat_interleave(
-    repeats: TensorType, output_size: Optional[int] = None
-) -> TensorType:
+    input: TFloat,
+    repeats: TFloat,
+    output_size: Optional[int] = None,
+) -> TFloat:
     """repeat_interleave.Tensor(Tensor repeats, *, int? output_size=None) -> Tensor"""
 
-    raise NotImplementedError()
+    return aten_repeat_interleave_dim(input, repeats, dim=None, output_size=output_size)
+
+
+@torch_op(
+    ("aten::repeat_interleave.self_Tensor", "aten::repeat_interleave.self_int"),
+    trace_only=True,
+)
+def aten_repeat_interleave_dim(
+    self: TFloat,
+    repeats: TFloat,
+    dim: Optional[int] = None,
+    output_size: Optional[int] = None,
+) -> TFloat:
+    """repeat_interleave.Tensor(Tensor repeats, *, int? output_size=None) -> Tensor"""
+
+    # flatten input, and return a flattened result
+    if dim is None:
+        neg_1 = op.Constant(value_ints=[-1])
+        self = op.Reshape(self, neg_1)
+        dim = 0
+
+    if dim < 0:
+        dim = len(self.shape) + dim
+
+    # repeats is either a scalar or a 1D tensor
+    if IsScalar(repeats):
+        return _aten_repeat_interleave_scalar_repeat(self, repeats, dim)
+
+    return result
+
+
+@torch_op(
+    ("aten::repeat_interleave.self_Tensor", "aten::repeat_interleave.self_int"),
+    traceable=True,
+    private=True,
+)
+def _aten_repeat_interleave_scalar_repeat(self: TFloat, repeats: TFloat, dim: int) -> TFloat:
+    """repeat_interleave.self_Tensor(Tensor self, Tensor repeats, int dim) -> Tensor"""
+    # Create a new dim of size 1, then expand it to be 'repeats' long, and finally collapse it.
+    unsqueezed = op.Unsqueeze(self, dim + 1)
+
+    # 'Repeats' is a variable, 'repeats_per_dim' cannot be a constant.
+    onehot = op.OneHot(
+        op.Unsqueeze(dim + 1, 0),  # indices, must be >= 1-dimensional
+        g.op("Constant", value_t=torch.tensor(_get_tensor_rank(unsqueezed))),  # depth
+        g.op(
+            "Concat", g.op("Constant", value_t=torch.tensor([1])), repeats, axis_i=0
+        ),  # on/off values
+    )
+    repeats_per_dim = flatten(g, onehot, 0, 1)
+
+    tiled = g.op("Tile", unsqueezed, repeats_per_dim)
+    return aten_flatten(tiled, dim, dim + 1)
 
 
 @torch_op("aten::reshape")
