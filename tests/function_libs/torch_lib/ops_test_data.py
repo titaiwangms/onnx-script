@@ -1783,6 +1783,14 @@ TESTED_TORCHLIB_OPS: tuple[TorchLibOpInfo, ...] = (
         reason="String padding is not accepted by aten::conv2d",
     ),
     TorchLibOpInfo(
+        "nn.functional.conv2d",
+        core_ops.aten_conv2d_padding,
+        tolerance={torch.float32: (2e-5, 3e-5)},
+    ).xfail(
+        matcher=lambda sample: isinstance(sample.kwargs.get("padding"), (list, tuple, int)),
+        reason="String padding is not accepted by aten::conv2d",
+    ),
+    TorchLibOpInfo(
         "nn.functional.instance_norm",
         core_ops.aten_instance_norm,
         tolerance={torch.float16: (1e-2, 1e-3)},

@@ -1885,6 +1885,51 @@ def aten_contiguous(
     return op.Identity(self)
 
 
+@torch_op("aten::conv1d.padding", trace_only=True)
+def aten_conv1d_padding(
+    input: TFloat,
+    weight: TFloat,
+    bias: Optional[TFloat] = None,
+    stride: Sequence[int] = (1,),
+    padding: str = "valid",
+    dilation: Sequence[int] = (1,),
+    groups: int = 1,
+) -> TFloat:
+    """conv1d.padding(Tensor input, Tensor weight, Tensor? bias=None, SymInt[1] stride=1, str padding="valid", SymInt[1] dilation=1, SymInt groups=1) -> Tensor"""
+
+    # Attributes need to be manipulated in Python to match ONNX's conv1d
+    if not isinstance(padding, Sequence):
+        padding = (padding,)
+    pads = [*padding, *padding]
+
+    if not isinstance(dilation, Sequence):
+        dilation = (dilation,)
+    dilations = list(dilation)
+
+    if not isinstance(stride, Sequence):
+        stride = (stride,)
+    strides = list(stride)
+
+    if bias is None:
+        weight_dim_0 = op.Shape(weight, start=0, end=1)
+        bias_shape = op.Expand(weight_dim_0, op.Constant(value_ints=[1]))
+        zero = op.CastLike(0.0, input)
+        bias = op.Expand(zero, bias_shape)
+
+    result = _aten_convolution_onnx(
+        input,
+        weight,
+        bias,
+        transposed=False,
+        strides=strides,
+        pads=pads,
+        dilations=dilations,
+        groups=groups,
+    )
+
+    return result
+
+
 @torch_op("aten::conv1d", trace_only=True)
 def aten_conv1d(
     input: TFloat,
@@ -1898,9 +1943,12 @@ def aten_conv1d(
     """conv1d(Tensor input, Tensor weight, Tensor? bias=None, int[1] stride=1, int[1] padding=0, int[1] dilation=1, int groups=1) -> Tensor"""
 
     # Attributes need to be manipulated in Python to match ONNX's conv1d
-    if not isinstance(padding, Sequence):
-        padding = (padding,)
-    pads = [*padding, *padding]
+    if padding == "valid":
+        pads = "VALID"
+    elif padding == "same":
+        pads = "SAME_UPPER"
+    else:
+        raise ValueError(f"torchlib only supports valid and same for pads, but got {pads}")
 
     if not isinstance(dilation, Sequence):
         dilation = (dilation,)
@@ -1908,6 +1956,54 @@ def aten_conv1d(
 
     if not isinstance(stride, Sequence):
         stride = (stride,)
+    strides = list(stride)
+
+    if bias is None:
+        weight_dim_0 = op.Shape(weight, start=0, end=1)
+        bias_shape = op.Expand(weight_dim_0, op.Constant(value_ints=[1]))
+        zero = op.CastLike(0.0, input)
+        bias = op.Expand(zero, bias_shape)
+
+    result = _aten_convolution_onnx(
+        input,
+        weight,
+        bias,
+        transposed=False,
+        strides=strides,
+        pads=pads,
+        dilations=dilations,
+        groups=groups,
+    )
+
+    return result
+
+
+@torch_op("aten::conv2d.padding", trace_only=True)
+def aten_conv2d_padding(
+    input: TFloat,
+    weight: TFloat,
+    bias: Optional[TFloat] = None,
+    stride: Sequence[int] = (1, 1),
+    padding: str = "valid",
+    dilation: Sequence[int] = (1, 1),
+    groups: int = 1,
+) -> TFloat:
+    """conv2d.padding(Tensor input, Tensor weight, Tensor? bias=None, SymInt[2] stride=1, str padding="valid", SymInt[2] dilation=1, SymInt groups=1) -> Tensor"""
+
+    # Attributes need to be manipulated in Python to match ONNX's conv2d
+    if padding == "valid":
+        pads = "VALID"
+    elif padding == "same":
+        pads = "SAME_UPPER"
+    else:
+        raise ValueError(f"torchlib only supports valid and same for pads, but got {pads}")
+
+    if not isinstance(dilation, Sequence):
+        dilation = (dilation, dilation)
+    dilations = list(dilation)
+
+    if not isinstance(stride, Sequence):
+        stride = (stride, stride)
     strides = list(stride)
 
     if bias is None:
@@ -1953,6 +2049,54 @@ def aten_conv2d(
 
     if not isinstance(stride, Sequence):
         stride = (stride, stride)
+    strides = list(stride)
+
+    if bias is None:
+        weight_dim_0 = op.Shape(weight, start=0, end=1)
+        bias_shape = op.Expand(weight_dim_0, op.Constant(value_ints=[1]))
+        zero = op.CastLike(0.0, input)
+        bias = op.Expand(zero, bias_shape)
+
+    result = _aten_convolution_onnx(
+        input,
+        weight,
+        bias,
+        transposed=False,
+        strides=strides,
+        pads=pads,
+        dilations=dilations,
+        groups=groups,
+    )
+
+    return result
+
+
+@torch_op("aten::conv3d.padding", trace_only=True)
+def aten_conv3d_padding(
+    input: TFloat,
+    weight: TFloat,
+    bias: Optional[TFloat] = None,
+    stride: Sequence[int] = (1, 1, 1),
+    padding: str = "valid",
+    dilation: Sequence[int] = (1, 1, 1),
+    groups: int = 1,
+) -> TFloat:
+    """conv3d.padding(Tensor input, Tensor weight, Tensor? bias=None, SymInt[3] stride=1, str padding="valid", SymInt[3] dilation=1, SymInt groups=1) -> Tensor"""
+
+    # Attributes need to be manipulated in Python to match ONNX's conv3d
+    if padding == "valid":
+        pads = "VALID"
+    elif padding == "same":
+        pads = "SAME_UPPER"
+    else:
+        raise ValueError(f"torchlib only supports valid and same for pads, but got {pads}")
+
+    if not isinstance(dilation, Sequence):
+        dilation = (dilation, dilation, dilation)
+    dilations = list(dilation)
+
+    if not isinstance(stride, Sequence):
+        stride = (stride, stride, stride)
     strides = list(stride)
 
     if bias is None:
@@ -2067,7 +2211,7 @@ def aten_convolution(
 
     if not isinstance(padding, Sequence):
         padding = (padding, padding)
-    pads = [*padding, *padding]
+    pads = [*padding, *padding, *padding, *padding]
 
     if not isinstance(dilation, Sequence):
         dilation = (dilation, dilation)
@@ -2099,7 +2243,7 @@ def _aten_convolution_onnx(
     bias: TFloat,
     transposed: bool,
     strides: Sequence[int],
-    pads: Sequence[int],
+    pads: Sequence[int] | str,
     dilations: Sequence[int],
     output_padding: Sequence[int] = (0,),
     groups: int = 1,
@@ -2117,26 +2261,49 @@ def _aten_convolution_onnx(
         input = op.Unsqueeze(input, op.Constant(value_ints=[0]))
 
     if transposed:
-        result = op.ConvTranspose(
-            input,
-            weight,
-            bias,
-            strides=strides,
-            pads=pads,
-            group=groups,
-            dilations=dilations,
-            output_padding=output_padding,
-        )
+        if isinstance(pads, str):
+            result = op.ConvTranspose(
+                input,
+                weight,
+                bias,
+                strides=strides,
+                auto_pad=pads,
+                group=groups,
+                dilations=dilations,
+                output_padding=output_padding,
+            )
+        else:
+            result = op.ConvTranspose(
+                input,
+                weight,
+                bias,
+                strides=strides,
+                pads=pads,
+                group=groups,
+                dilations=dilations,
+                output_padding=output_padding,
+            )
     else:
-        result = op.Conv(
-            input,
-            weight,
-            bias,
-            strides=strides,
-            pads=pads,
-            group=groups,
-            dilations=dilations,
-        )
+        if isinstance(pads, str):
+            result = op.Conv(
+                input,
+                weight,
+                bias,
+                strides=strides,
+                auto_pad=pads,
+                group=groups,
+                dilations=dilations,
+            )
+        else:
+            result = op.Conv(
+                input,
+                weight,
+                bias,
+                strides=strides,
+                pads=pads,
+                group=groups,
+                dilations=dilations,
+            )
 
     if no_batch:
         result = op.Squeeze(result, op.Constant(value_ints=[0]))
